@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}销量预测 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>销量预测 · 随机森林模型</h1>
+  <div class="subtitle">基于历史销量、时间特征、促销、滞后特征，预测未来 {{ future_total | length }} 天各品类销量</div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">模型算法</div><div class="kpi-value" style="font-size:22px;">RandomForest</div><div class="kpi-sub">{{ n_estimators }} 棵决策树</div></div>
+  <div class="kpi-card success"><div class="kpi-label">决定系数 R²</div><div class="kpi-value">{{ '%.4f'|format(r2) }}</div><div class="kpi-sub">越接近 1 越优</div></div>
+  <div class="kpi-card warning"><div class="kpi-label">平均绝对误差 MAE</div><div class="kpi-value">{{ '%.2f'|format(mae) }}</div><div class="kpi-sub">销量件数误差</div></div>
+  <div class="kpi-card info"><div class="kpi-label">预测天数</div><div class="kpi-value">{{ future_total | length }} 天</div><div class="kpi-sub">{{ cats_count | default(future_by_category | length // (future_total | length if future_total else 1)) }} 个品类</div></div>
+</div>
+
+<div class="card">
+  <div class="card-title">近 30 天实际销量 → 未来 7 天预测销量（衔接趋势）<span class="actions"><a href="{{ url_for('export', ftype='forecast') }}">导出预测明细</a></span></div>
+  <div id="trend-chart" class="chart" style="height:380px;"></div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">测试集：实际 vs 预测 对比（2024年12月）</div>
+    <div id="eval-chart" class="chart tall"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">特征重要性（模型可解释性）</div>
+    <div id="feat-chart" class="chart tall"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">未来 7 天分品类预测明细</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>日期</th><th>品类</th><th class="num">预测销量(件)</th></tr></thead>
+      <tbody>
+        {% for r in future_by_category %}
+        <tr><td>{{ r.order_date }}</td><td>{{ r.category }}</td><td class="num">{{ r.predicted_sales }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const recentActual = {{ recent_actual | tojson }};
+const futureTotal = {{ future_total | tojson }};
+const evalByDay = {{ eval_by_day | tojson }};
+const featImp = {{ feature_importance | tojson }};
+
+// 实际+预测衔接
+makeChart('trend-chart', {
+  tooltip: Object.assign({ trigger: 'axis' }, TOOLTIP_STYLE),
+  legend: { data: ['实际销量', '预测销量'], top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 50, right: 30, top: 40, bottom: 50 },
+  dataZoom: [{ type: 'inside' }, { type: 'slider', height: 18, bottom: 12 }],
+  xAxis: { type: 'category', data: [...recentActual.map(d=>d.order_date), ...futureTotal.map(d=>d.order_date)], axisLine: { lineStyle: { color: '#94a3b8' } } },
+  yAxis: { type: 'value', name: '销量(件)', splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: [
+    { name: '实际销量', type: 'line', data: [...recentActual.map(d=>d.actual), ...futureTotal.map(()=>null)], smooth: true, itemStyle: { color: '#2563eb' }, lineStyle: { width: 3 } },
+    { name: '预测销量', type: 'line', data: [...recentActual.map(()=>null), ...futureTotal.map(d=>d.predicted)], smooth: true, itemStyle: { color: '#dc2626' }, lineStyle: { width: 3, type: 'dashed' } }
+  ]
+});
+
+// 测试集对比
+makeChart('eval-chart', {
+  tooltip: Object.assign({ trigger: 'axis' }, TOOLTIP_STYLE),
+  legend: { data: ['实际', '预测'], top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 50, right: 20, top: 40, bottom: 30 },
+  xAxis: { type: 'category', data: evalByDay.map(d=>d.order_date), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  yAxis: { type: 'value', name: '销量(件)', splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: [
+    { name: '实际', type: 'line', data: evalByDay.map(d=>d.actual), smooth: true, itemStyle: { color: '#2563eb' } },
+    { name: '预测', type: 'line', data: evalByDay.map(d=>d.predicted), smooth: true, itemStyle: { color: '#d97706' } }
+  ]
+});
+
+// 特征重要性
+makeChart('feat-chart', {
+  tooltip: Object.assign({ trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: ps => `${ps[0].name}<br/>重要性: ${(ps[0].value*100).toFixed(2)}%` }, TOOLTIP_STYLE),
+  grid: { left: 120, right: 30, top: 20, bottom: 30 },
+  xAxis: { type: 'value', axisLabel: { formatter: v => (v*100).toFixed(0) + '%' } },
+  yAxis: { type: 'category', data: featImp.map(d=>d.feature).reverse(), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  series: [{ type: 'bar', data: featImp.map(d=>d.importance).reverse(), itemStyle: { color: '#7c3aed', borderRadius: [0,4,4,0] } }]
+});
+</script>
+{% endblock %}

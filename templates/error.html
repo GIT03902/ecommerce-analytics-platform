@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ code }} 错误 - 电商智能分析平台</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="setup-page">
+  <div class="setup-box">
+    <div style="font-size:64px;font-weight:700;color:var(--danger);">{{ code }}</div>
+    <h2 style="margin-top:8px;">{{ msg }}</h2>
+    <p>抱歉，出现了点问题。请检查服务是否正常运行。</p>
+    <a href="{{ url_for('index') }}" class="btn" style="margin-top:8px;">返回首页</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}客户分析 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>客户分析 · RFM 分层模型</h1>
+  <div class="subtitle">基于 RFM + K-Means 聚类，将客户分为 4 个价值层级，精准识别高价值与流失风险客户</div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card success"><div class="kpi-label">高价值客户</div><div class="kpi-value">{{ tier_dist[0]['count'] if tier_dist|length > 0 else 0 }}</div><div class="kpi-sub">核心利润来源</div></div>
+  <div class="kpi-card"><div class="kpi-label">潜力客户</div><div class="kpi-value">{{ tier_dist[1]['count'] if tier_dist|length > 1 else 0 }}</div><div class="kpi-sub">待提升复购</div></div>
+  <div class="kpi-card warning"><div class="kpi-label">一般客户</div><div class="kpi-value">{{ tier_dist[2]['count'] if tier_dist|length > 2 else 0 }}</div><div class="kpi-sub">日常维系</div></div>
+  <div class="kpi-card danger"><div class="kpi-label">流失预警客户</div><div class="kpi-value">{{ tier_dist[3]['count'] if tier_dist|length > 3 else 0 }}</div><div class="kpi-sub">需召回</div></div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">客户价值层级分布<span class="actions"><a href="{{ url_for('export', ftype='rfm') }}">导出 RFM 明细</a></span></div>
+    <div id="tier-chart" class="chart tall"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">RFM 散点：最近购买(R) × 累计金额(M)</div>
+    <div id="scatter-chart" class="chart tall"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">各层级核心指标</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>客户层级</th><th class="num">人数</th><th class="num">平均金额(元)</th><th class="num">平均频次</th><th class="num">平均最近购买(天)</th><th class="num">总金额(元)</th><th class="num">金额占比(%)</th></tr>
+      </thead>
+      <tbody>
+        {% for r in tier_dist %}
+        <tr>
+          <td>
+            {% if r.tier == '高价值客户' %}<span class="tag ok">高价值</span>
+            {% elif r.tier == '潜力客户' %}<span class="tag mid">潜力</span>
+            {% elif r.tier == '一般客户' %}<span class="tag low">一般</span>
+            {% else %}<span class="tag churn">流失预警</span>{% endif %}
+            {{ r.tier }}
+          </td>
+          <td class="num">{{ r.count }}</td>
+          <td class="num">¥{{ fmt_money(r.avg_monetary) }}</td>
+          <td class="num">{{ '%.1f'|format(r.avg_frequency) }}</td>
+          <td class="num">{{ '%.0f'|format(r.avg_recency) }}</td>
+          <td class="num">¥{{ fmt_money(r.total_monetary) }}</td>
+          <td class="num">{{ r.monetary_share }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">高价值客户 Top（金额降序）</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>用户ID</th><th class="num">累计金额</th><th class="num">频次</th><th class="num">最近购买(天)</th></tr></thead>
+        <tbody>
+          {% for u in high_value[:15] %}
+          <tr><td>{{ u.user_id }}</td><td class="num">¥{{ fmt_money(u.monetary) }}</td><td class="num">{{ u.frequency }}</td><td class="num">{{ u.recency }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">流失预警客户 Top（金额降序）</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>用户ID</th><th class="num">累计金额</th><th class="num">频次</th><th class="num">沉寂天数</th></tr></thead>
+        <tbody>
+          {% for u in churn_users[:15] %}
+          <tr><td>{{ u.user_id }}</td><td class="num">¥{{ fmt_money(u.monetary) }}</td><td class="num">{{ u.frequency }}</td><td class="num"><span class="tag churn">{{ u.recency }}天</span></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const tierDist = {{ tier_dist | tojson }};
+const rfmScatter = {{ rfm_scatter | tojson }};
+
+const TIER_COLORS = { '高价值客户': '#16a34a', '潜力客户': '#2563eb', '一般客户': '#d97706', '流失预警客户': '#dc2626' };
+
+makeChart('tier-chart', {
+  tooltip: Object.assign({ trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' }, TOOLTIP_STYLE),
+  legend: { bottom: 0, textStyle: { color: '#64748b' } },
+  series: [{
+    type: 'pie', radius: ['40%', '70%'],
+    data: tierDist.map(d => ({ name: d.tier, value: d.count, itemStyle: { color: TIER_COLORS[d.tier] } })),
+    label: { color: '#1e293b', formatter: '{b}\n{c}人' }
+  }]
+});
+
+// 散点图按层级分组
+const groups = {};
+rfmScatter.forEach(d => { (groups[d.tier] = groups[d.tier] || []).push([d.recency, d.monetary]); });
+const scatterSeries = Object.keys(groups).map(t => ({
+  name: t, type: 'scatter', data: groups[t], symbolSize: 8, itemStyle: { color: TIER_COLORS[t], opacity: 0.7 }
+}));
+
+makeChart('scatter-chart', {
+  tooltip: Object.assign({ trigger: 'item', formatter: p => `${p.seriesName}<br/>最近购买: ${p.value[0]}天<br/>累计金额: ¥${fmtMoney(p.value[1])}` }, TOOLTIP_STYLE),
+  legend: { top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 70, right: 30, top: 40, bottom: 40 },
+  xAxis: { type: 'value', name: '最近购买天数(R)', nameLocation: 'middle', nameGap: 30, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  yAxis: { type: 'value', name: '累计金额(M)', axisLabel: { formatter: v => fmtMoney(v) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: scatterSeries
+});
+</script>
+{% endblock %}

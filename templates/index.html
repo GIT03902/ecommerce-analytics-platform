@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}系统概览 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>系统概览</h1>
+  <div class="subtitle">电商销售数据分析与智能预警平台 · 实时洞察经营全貌（数据周期：2024 全年）</div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">总成交额 GMV</div>
+    <div class="kpi-value">¥<span id="kpi-gmv"></span></div>
+    <div class="kpi-sub">全年累计成交金额</div>
+  </div>
+  <div class="kpi-card success">
+    <div class="kpi-label">总订单数</div>
+    <div class="kpi-value"><span id="kpi-orders"></span></div>
+    <div class="kpi-sub">全年累计订单</div>
+  </div>
+  <div class="kpi-card info">
+    <div class="kpi-label">消费用户数</div>
+    <div class="kpi-value"><span id="kpi-users"></span></div>
+    <div class="kpi-sub">产生过订单的用户</div>
+  </div>
+  <div class="kpi-card warning">
+    <div class="kpi-label">客单价</div>
+    <div class="kpi-value">¥<span id="kpi-aov"></span></div>
+    <div class="kpi-sub">平均每单金额</div>
+  </div>
+  <div class="kpi-card danger">
+    <div class="kpi-label">复购率</div>
+    <div class="kpi-value"><span id="kpi-repurchase"></span>%</div>
+    <div class="kpi-sub">购买≥2次的用户占比</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">总销量</div>
+    <div class="kpi-value"><span id="kpi-qty"></span></div>
+    <div class="kpi-sub">全年累计商品件数</div>
+  </div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">月度 GMV 趋势<span class="actions"><a href="{{ url_for('export', ftype='kpi') }}">导出 Excel</a></span></div>
+    <div id="monthly-chart" class="chart"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">品类销售占比</div>
+    <div id="category-chart" class="chart"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">核心功能模块</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
+    <a href="{{ url_for('dashboard') }}" class="func-card" style="display:block;padding:18px;background:#f8fafc;border-radius:10px;border-left:4px solid #2563eb;">
+      <div style="font-size:17px;font-weight:600;">📊 经营仪表盘</div>
+      <div style="font-size:13px;color:#64748b;margin-top:6px;">GMV、品类、地域、渠道多维可视化</div>
+    </a>
+    <a href="{{ url_for('trend') }}" style="display:block;padding:18px;background:#f8fafc;border-radius:10px;border-left:4px solid #16a34a;">
+      <div style="font-size:17px;font-weight:600;">📈 趋势分析</div>
+      <div style="font-size:13px;color:#64748b;margin-top:6px;">日/月销量趋势、促销效果、品类堆叠</div>
+    </a>
+    <a href="{{ url_for('customers') }}" style="display:block;padding:18px;background:#f8fafc;border-radius:10px;border-left:4px solid #d97706;">
+      <div style="font-size:17px;font-weight:600;">👥 客户分析</div>
+      <div style="font-size:13px;color:#64748b;margin-top:6px;">RFM 分层、K-Means 聚类、流失预警</div>
+    </a>
+    <a href="{{ url_for('products') }}" style="display:block;padding:18px;background:#f8fafc;border-radius:10px;border-left:4px solid #dc2626;">
+      <div style="font-size:17px;font-weight:600;">🛒 商品分析</div>
+      <div style="font-size:13px;color:#64748b;margin-top:6px;">热销榜、滞销品、品类结构</div>
+    </a>
+    <a href="{{ url_for('forecast') }}" style="display:block;padding:18px;background:#f8fafc;border-radius:10px;border-left:4px solid #0891b2;">
+      <div style="font-size:17px;font-weight:600;">🔮 销量预测</div>
+      <div style="font-size:13px;color:#64748b;margin-top:6px;">随机森林预测未来 7 天销量</div>
+    </a>
+    <a href="{{ url_for('warning') }}" style="display:block;padding:18px;background:#f8fafc;border-radius:10px;border-left:4px solid #7c3aed;">
+      <div style="font-size:17px;font-weight:600;">🚨 智能预警</div>
+      <div style="font-size:13px;color:#64748b;margin-top:6px;">库存预警、客户流失、销量异常</div>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const kpis = {{ kpis | tojson }};
+const monthlyGmv = {{ monthly_gmv | tojson }};
+const categorySales = {{ category_sales | tojson }};
+
+// 填充 KPI
+document.getElementById('kpi-gmv').textContent = fmtMoney(kpis.total_gmv);
+document.getElementById('kpi-orders').textContent = fmtNum(kpis.total_orders);
+document.getElementById('kpi-users').textContent = fmtNum(kpis.total_users);
+document.getElementById('kpi-aov').textContent = fmtMoney(kpis.aov);
+document.getElementById('kpi-repurchase').textContent = kpis.repurchase_rate.toFixed(1);
+document.getElementById('kpi-qty').textContent = fmtNum(kpis.total_qty);
+
+// 月度 GMV
+makeChart('monthly-chart', {
+  tooltip: Object.assign({ trigger: 'axis' }, TOOLTIP_STYLE),
+  grid: { left: 50, right: 20, top: 40, bottom: 40 },
+  xAxis: { type: 'category', data: monthlyGmv.map(d => d.month), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  yAxis: { type: 'value', axisLabel: { formatter: v => fmtMoney(v) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: [{
+    name: 'GMV', type: 'bar', data: monthlyGmv.map(d => d.gmv),
+    itemStyle: { color: '#2563eb', borderRadius: [4, 4, 0, 0] }
+  }]
+});
+
+// 品类占比饼图
+makeChart('category-chart', {
+  tooltip: Object.assign({ trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' }, TOOLTIP_STYLE),
+  legend: { bottom: 0, textStyle: { color: '#64748b' } },
+  series: [{
+    type: 'pie', radius: ['40%', '70%'],
+    data: categorySales.map(d => ({ name: d.category, value: d.gmv })),
+    label: { color: '#1e293b' }
+  }]
+});
+</script>
+{% endblock %}

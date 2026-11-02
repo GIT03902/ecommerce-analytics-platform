@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}商品分析 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>商品分析</h1>
+  <div class="subtitle">品类结构 · 热销榜 · 滞销识别 · 库存健康度</div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">各品类 GMV 对比<span class="actions"><a href="{{ url_for('export', ftype='category') }}">导出明细</a></span></div>
+    <div id="cat-chart" class="chart tall"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">热销商品 Top 15</div>
+    <div id="top-chart" class="chart tall"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">滞销商品清单（销量升序 · 关注清库存）</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>商品ID</th><th>商品名称</th><th>品类</th><th class="num">库存</th><th class="num">累计销量</th><th class="num">累计GMV</th></tr></thead>
+      <tbody>
+        {% for p in slow_products %}
+        <tr><td>{{ p.product_id }}</td><td>{{ p.product_name }}</td><td>{{ p.category }}</td><td class="num">{{ p.stock }}</td><td class="num">{{ p.qty }}</td><td class="num">¥{{ fmt_money(p.gmv) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">库存预警清单<span class="actions"><a href="{{ url_for('export', ftype='low_stock') }}">导出预警表</a></span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>商品ID</th><th>商品名称</th><th>品类</th><th class="num">库存</th><th class="num">近30天销量</th><th class="num">预计可售天数</th><th>预警级别</th></tr></thead>
+      <tbody>
+        {% for p in low_stock %}
+        <tr>
+          <td>{{ p.product_id }}</td><td>{{ p.product_name }}</td><td>{{ p.category }}</td>
+          <td class="num">{{ p.stock }}</td><td class="num">{{ p.sold_30d }}</td>
+          <td class="num">{{ '∞' if p.est_days >= 9999 else p.est_days }}</td>
+          <td>
+            {% if p.warning == '紧急' %}<span class="tag urgent">紧急</span>
+            {% elif p.warning == '预警' %}<span class="tag warn">预警</span>
+            {% elif p.warning == '关注' %}<span class="tag watch">关注</span>
+            {% else %}<span class="tag ok">正常</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const categorySales = {{ category_sales | tojson }};
+const topProducts = {{ top_products | tojson }};
+
+makeChart('cat-chart', {
+  tooltip: Object.assign({ trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: ps => {
+    let s = ps[0].name + '<br/>';
+    ps.forEach(p => s += `${p.marker}${p.seriesName}: ¥${fmtMoney(p.value)}<br/>`);
+    return s;
+  } }, TOOLTIP_STYLE),
+  legend: { data: ['GMV', '销量'], top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 60, right: 50, top: 40, bottom: 40 },
+  xAxis: { type: 'category', data: categorySales.map(d=>d.category), axisLine: { lineStyle: { color: '#94a3b8' } }, axisLabel: { interval: 0, rotate: 20 } },
+  yAxis: [
+    { type: 'value', name: 'GMV', axisLabel: { formatter: v => fmtMoney(v) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+    { type: 'value', name: '销量(件)', splitLine: { show: false } }
+  ],
+  series: [
+    { name: 'GMV', type: 'bar', data: categorySales.map(d=>d.gmv), itemStyle: { color: '#2563eb', borderRadius: [4,4,0,0] } },
+    { name: '销量', type: 'line', yAxisIndex: 1, data: categorySales.map(d=>d.qty), itemStyle: { color: '#d97706' } }
+  ]
+});
+
+makeChart('top-chart', {
+  tooltip: Object.assign({ trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: ps => `${ps[0].name}<br/>GMV: ¥${fmtMoney(ps[0].value)}` }, TOOLTIP_STYLE),
+  grid: { left: 170, right: 50, top: 20, bottom: 30 },
+  xAxis: { type: 'value', axisLabel: { formatter: v => fmtMoney(v) } },
+  yAxis: { type: 'category', data: topProducts.map(d=>d.product_name).reverse(), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  series: [{ type: 'bar', data: topProducts.map(d=>d.gmv).reverse(), itemStyle: { color: '#16a34a', borderRadius: [0,4,4,0] }, label: { show: true, position: 'right', formatter: p => '¥' + fmtMoney(p.value), color: '#1e293b' } }]
+});
+</script>
+{% endblock %}

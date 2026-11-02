@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系统初始化 - 电商智能分析平台</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="setup-page">
+  <div class="setup-box">
+    <h2>系统尚未初始化</h2>
+    <p>检测到数据库为空。请在项目根目录打开终端，执行以下命令完成数据生成与模型训练：</p>
+    <div class="code-block">
+# 1. 安装依赖（首次）
+pip install -r requirements.txt
+
+# 2. 一键初始化（生成数据 + 训练模型）
+python setup.py
+
+# 3. 启动系统
+python run.py
+    </div>
+    <p>初始化约需 1-2 分钟（含 6 万条订单数据生成与机器学习模型训练）。</p>
+    <p>完成后刷新本页，使用 <code style="background:#e0e7ff;padding:2px 6px;border-radius:4px;">admin / admin123</code> 登录。</p>
+    <a href="{{ url_for('index') }}" class="btn" style="margin-top:8px;">刷新页面</a>
+  </div>
+</div>
+</body>
+</html>

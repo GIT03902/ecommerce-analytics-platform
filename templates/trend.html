@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}趋势分析 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>销量趋势分析</h1>
+  <div class="subtitle">近 90 天日销量趋势 · 促销效果对比 · 品类月度堆叠</div>
+</div>
+
+<div class="card">
+  <div class="card-title">近 90 天销量与 GMV 趋势</div>
+  <div id="daily-chart" class="chart" style="height:360px;"></div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">促销日 vs 普通日 销售对比</div>
+    <div id="promo-chart" class="chart"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">渠道 × 促销 贡献</div>
+    <div id="promo-text" class="chart" style="display:flex;flex-direction:column;justify-content:center;padding:20px;">
+      {% for item in promo_impact %}
+      <div style="margin-bottom:18px;">
+        <div style="font-size:18px;font-weight:600;color:{{ 'var(--danger)' if item.label == '促销日' else 'var(--primary)' }};">{{ item.label }}</div>
+        <div style="font-size:14px;color:#64748b;margin-top:4px;">订单 <b style="color:#1e293b;">{{ "{:,}".format(item.orders) }}</b> 单 · GMV <b style="color:#1e293b;">¥{{ fmt_money(item.gmv) }}</b></div>
+        <div style="font-size:14px;color:#64748b;">客单价 ¥{{ fmt_money(item.avg_amount) }} · 销量 {{ "{:,}".format(item.qty) }} 件</div>
+      </div>
+      {% endfor %}
+      <div style="font-size:13px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px;">促销日显著拉高 GMV 与客单价，验证大促策略有效。</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">各品类月度 GMV 堆叠趋势</div>
+  <div id="stack-chart" class="chart" style="height:380px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dailySales = {{ daily_sales | tojson }};
+const promoImpact = {{ promo_impact | tojson }};
+const categoryMonthly = {{ category_monthly | tojson }};
+
+makeChart('daily-chart', {
+  tooltip: Object.assign({ trigger: 'axis' }, TOOLTIP_STYLE),
+  legend: { data: ['日销量(件)', '日GMV(元)'], top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 60, right: 60, top: 40, bottom: 50 },
+  dataZoom: [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 10 }],
+  xAxis: { type: 'category', data: dailySales.map(d=>d.order_date), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  yAxis: [
+    { type: 'value', name: '销量', splitLine: { lineStyle: { color: '#e2e8f0' } } },
+    { type: 'value', name: 'GMV', axisLabel: { formatter: v => fmtMoney(v) }, splitLine: { show: false } }
+  ],
+  series: [
+    { name: '日销量(件)', type: 'line', data: dailySales.map(d=>d.sales), smooth: true, itemStyle: { color: '#2563eb' }, lineStyle: { width: 2 } },
+    { name: '日GMV(元)', type: 'line', yAxisIndex: 1, data: dailySales.map(d=>d.gmv), smooth: true, itemStyle: { color: '#d97706' }, lineStyle: { width: 2 } }
+  ]
+});
+
+makeChart('promo-chart', {
+  tooltip: Object.assign({ trigger: 'axis', axisPointer: { type: 'shadow' } }, TOOLTIP_STYLE),
+  grid: { left: 50, right: 30, top: 30, bottom: 30 },
+  xAxis: { type: 'category', data: promoImpact.map(d=>d.label) },
+  yAxis: [{ type: 'value', name: 'GMV', axisLabel: { formatter: v => fmtMoney(v) } }, { type: 'value', name: '订单数' }],
+  series: [
+    { name: 'GMV', type: 'bar', data: promoImpact.map(d=>d.gmv), itemStyle: { color: '#dc2626', borderRadius: [4,4,0,0] } },
+    { name: '订单数', type: 'line', yAxisIndex: 1, data: promoImpact.map(d=>d.orders), itemStyle: { color: '#16a34a' } }
+  ]
+});
+
+makeChart('stack-chart', {
+  tooltip: Object.assign({ trigger: 'axis', axisPointer: { type: 'shadow' } }, TOOLTIP_STYLE),
+  legend: { top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 60, right: 30, top: 40, bottom: 40 },
+  xAxis: { type: 'category', data: categoryMonthly.months, axisLine: { lineStyle: { color: '#94a3b8' } } },
+  yAxis: { type: 'value', name: 'GMV(元)', axisLabel: { formatter: v => fmtMoney(v) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: categoryMonthly.series.map(s => ({ name: s.name, type: 'bar', stack: 'total', data: s.data }))
+});
+</script>
+{% endblock %}

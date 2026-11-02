@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}智能预警中心 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>智能预警中心</h1>
+  <div class="subtitle">库存预警 · 客户流失预警 · 销量预测异常 · 一站式风险洞察</div>
+</div>
+
+<div class="warning-banner">
+  <div class="warn-stat danger">
+    <div class="num">{{ stock_warning_count }}</div>
+    <div class="label">紧急/预警级库存商品</div>
+  </div>
+  <div class="warn-stat">
+    <div class="num">{{ low_stock_count }}</div>
+    <div class="label">需关注库存商品总数</div>
+  </div>
+  <div class="warn-stat danger">
+    <div class="num">{{ churn_count }}</div>
+    <div class="label">流失预警客户（沉寂&gt;90天）</div>
+  </div>
+  <div class="warn-stat">
+    <div class="num">{{ forecast.future_total | length }}</div>
+    <div class="label">未来 {{ forecast.future_total | length }} 天销量预测</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">未来 7 天各品类销量预测（随机森林模型）<span class="actions"><a href="{{ url_for('forecast') }}">查看预测详情</a></span></div>
+  <div id="forecast-chart" class="chart" style="height:340px;"></div>
+</div>
+
+<div class="card">
+  <div class="card-title">库存预警清单（按预计可售天数升序）<span class="actions"><a href="{{ url_for('export', ftype='low_stock') }}">导出 Excel</a></span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>商品ID</th><th>商品名称</th><th>品类</th><th class="num">库存</th><th class="num">近30天销量</th><th class="num">预计可售天数</th><th>预警级别</th></tr></thead>
+      <tbody>
+        {% for p in low_stock %}
+        <tr>
+          <td>{{ p.product_id }}</td><td>{{ p.product_name }}</td><td>{{ p.category }}</td>
+          <td class="num">{{ p.stock }}</td><td class="num">{{ p.sold_30d }}</td>
+          <td class="num">{{ '∞' if p.est_days >= 9999 else p.est_days }}</td>
+          <td>
+            {% if p.warning == '紧急' %}<span class="tag urgent">紧急</span>
+            {% elif p.warning == '预警' %}<span class="tag warn">预警</span>
+            {% elif p.warning == '关注' %}<span class="tag watch">关注</span>
+            {% else %}<span class="tag ok">正常</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">客户流失预警清单（沉寂天数 &gt; 90 天，按累计金额降序）</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>用户ID</th><th class="num">累计金额</th><th class="num">购买频次</th><th class="num">沉寂天数</th><th>建议动作</th></tr></thead>
+      <tbody>
+        {% for u in churn_users[:20] %}
+        <tr>
+          <td>{{ u.user_id }}</td>
+          <td class="num">¥{{ fmt_money(u.monetary) }}</td>
+          <td class="num">{{ u.frequency }}</td>
+          <td class="num"><span class="tag churn">{{ u.recency }} 天</span></td>
+          <td>{{ '定向大额优惠券召回' if u.monetary > 3000 else '短信/Push 触达激活' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const forecastByCat = {{ forecast.future_by_category | tojson }};
+const dates = [...new Set(forecastByCat.map(d => d.order_date))].sort();
+const cats = [...new Set(forecastByCat.map(d => d.category))];
+const series = cats.map(c => ({
+  name: c, type: 'bar', stack: 'total',
+  data: dates.map(d => {
+    const r = forecastByCat.find(x => x.order_date === d && x.category === c);
+    return r ? r.predicted_sales : 0;
+  })
+}));
+
+makeChart('forecast-chart', {
+  tooltip: Object.assign({ trigger: 'axis', axisPointer: { type: 'shadow' } }, TOOLTIP_STYLE),
+  legend: { top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 50, right: 30, top: 40, bottom: 30 },
+  xAxis: { type: 'category', data: dates },
+  yAxis: { type: 'value', name: '预测销量(件)' },
+  series: series
+});
+</script>
+{% endblock %}

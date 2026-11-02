@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="logo">电商智能分析</div>
+    <nav class="menu">
+      <a href="{{ url_for('index') }}" class="menu-item {% if request.endpoint == 'index' %}active{% endif %}">系统概览</a>
+      <a href="{{ url_for('dashboard') }}" class="menu-item {% if request.endpoint == 'dashboard' %}active{% endif %}">经营仪表盘</a>
+      <a href="{{ url_for('trend') }}" class="menu-item {% if request.endpoint == 'trend' %}active{% endif %}">趋势分析</a>
+      <a href="{{ url_for('customers') }}" class="menu-item {% if request.endpoint == 'customers' %}active{% endif %}">客户分析</a>
+      <a href="{{ url_for('products') }}" class="menu-item {% if request.endpoint == 'products' %}active{% endif %}">商品分析</a>
+      <a href="{{ url_for('forecast') }}" class="menu-item {% if request.endpoint == 'forecast' %}active{% endif %}">销量预测</a>
+      <a href="{{ url_for('agent') }}" class="menu-item {% if request.endpoint == 'agent' %}active{% endif %}">🤖 智能助手</a>
+      <a href="{{ url_for('warning') }}" class="menu-item {% if request.endpoint == 'warning' %}active{% endif %}">智能预警</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-name">{{ current_user.display_name or '管理员' }}</div>
+      <a href="{{ url_for('logout') }}" class="logout-btn">退出登录</a>
+    </div>
+  </aside>
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

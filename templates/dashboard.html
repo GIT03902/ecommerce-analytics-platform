@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}经营仪表盘 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>经营仪表盘</h1>
+  <div class="subtitle">多维度可视化洞察经营全局：GMV、品类、地域、渠道、用户增长</div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">总 GMV</div><div class="kpi-value">¥<span id="g-gmv"></span></div></div>
+  <div class="kpi-card success"><div class="kpi-label">总订单</div><div class="kpi-value"><span id="g-orders"></span></div></div>
+  <div class="kpi-card info"><div class="kpi-label">消费用户</div><div class="kpi-value"><span id="g-users"></span></div></div>
+  <div class="kpi-card warning"><div class="kpi-label">客单价</div><div class="kpi-value">¥<span id="g-aov"></span></div></div>
+  <div class="kpi-card danger"><div class="kpi-label">复购率</div><div class="kpi-value"><span id="g-repurchase"></span>%</div></div>
+  <div class="kpi-card"><div class="kpi-label">促销订单占比</div><div class="kpi-value"><span id="g-promo"></span>%</div></div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">月度 GMV 与订单量<span class="actions"><a href="{{ url_for('export', ftype='kpi') }}">导出 Excel</a></span></div>
+    <div id="monthly-chart" class="chart tall"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">品类销售占比</div>
+    <div id="category-chart" class="chart tall"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">全国销售地域分布（GMV · 万元）</div>
+  <div id="region-chart" class="chart" style="height:420px;"></div>
+</div>
+
+<div class="chart-grid">
+  <div class="card">
+    <div class="card-title">热销商品 Top 10<span class="actions"><a href="{{ url_for('export', ftype='top_products') }}">导出 Top50</a></span></div>
+    <div id="top-chart" class="chart tall"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">下单渠道分布</div>
+    <div id="channel-chart" class="chart tall"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">用户规模增长（累计）</div>
+  <div id="user-growth-chart" class="chart"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const K = {{ kpis | tojson }};
+const monthlyGmv = {{ monthly_gmv | tojson }};
+const categorySales = {{ category_sales | tojson }};
+const topProducts = {{ top_products | tojson }};
+const regionSales = {{ region_sales | tojson }};
+const channelDist = {{ channel_dist | tojson }};
+const userGrowth = {{ user_growth | tojson }};
+
+document.getElementById('g-gmv').textContent = fmtMoney(K.total_gmv);
+document.getElementById('g-orders').textContent = fmtNum(K.total_orders);
+document.getElementById('g-users').textContent = fmtNum(K.total_users);
+document.getElementById('g-aov').textContent = fmtMoney(K.aov);
+document.getElementById('g-repurchase').textContent = K.repurchase_rate.toFixed(1);
+document.getElementById('g-promo').textContent = K.promo_rate.toFixed(1);
+
+// 月度 GMV + 订单量 双轴
+makeChart('monthly-chart', {
+  tooltip: Object.assign({ trigger: 'axis' }, TOOLTIP_STYLE),
+  legend: { data: ['GMV(元)', '订单数'], top: 0, textStyle: { color: '#64748b' } },
+  grid: { left: 60, right: 60, top: 40, bottom: 40 },
+  xAxis: { type: 'category', data: monthlyGmv.map(d => d.month), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  yAxis: [
+    { type: 'value', name: 'GMV', axisLabel: { formatter: v => fmtMoney(v) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+    { type: 'value', name: '订单数', splitLine: { show: false } }
+  ],
+  series: [
+    { name: 'GMV(元)', type: 'bar', data: monthlyGmv.map(d => d.gmv), itemStyle: { color: '#2563eb', borderRadius: [4,4,0,0] } },
+    { name: '订单数', type: 'line', yAxisIndex: 1, data: monthlyGmv.map(d => d.orders), smooth: true, itemStyle: { color: '#16a34a' }, lineStyle: { width: 3 } }
+  ]
+});
+
+// 品类饼图
+makeChart('category-chart', {
+  tooltip: Object.assign({ trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' }, TOOLTIP_STYLE),
+  legend: { bottom: 0, textStyle: { color: '#64748b' } },
+  series: [{ type: 'pie', radius: ['38%', '68%'], data: categorySales.map(d => ({ name: d.category, value: d.gmv })), label: { color: '#1e293b' } }]
+});
+
+// 中国地图
+registerChinaMap(() => {
+  makeChart('region-chart', {
+    tooltip: Object.assign({ trigger: 'item', formatter: p => p.name + '：¥' + p.value + ' 万' }, TOOLTIP_STYLE),
+    visualMap: { min: 0, max: Math.max(...regionSales.map(d=>d.value)) || 100, left: 20, bottom: 20, text: ['高','低'], calculable: true, inRange: { color: ['#dbeafe','#3b82f6','#1d4ed8'] } },
+    series: [{ type: 'map', map: 'china', roam: false, data: regionSales, emphasis: { label: { show: true } } }]
+  });
+});
+
+// Top 商品横向柱
+makeChart('top-chart', {
+  tooltip: Object.assign({ trigger: 'axis', axisPointer: { type: 'shadow' } }, TOOLTIP_STYLE),
+  grid: { left: 160, right: 30, top: 20, bottom: 30 },
+  xAxis: { type: 'value', axisLabel: { formatter: v => fmtMoney(v) } },
+  yAxis: { type: 'category', data: topProducts.map(d=>d.product_name).reverse(), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  series: [{ type: 'bar', data: topProducts.map(d=>d.gmv).reverse(), itemStyle: { color: '#16a34a', borderRadius: [0,4,4,0] }, label: { show: true, position: 'right', formatter: p => '¥' + fmtMoney(p.value), color: '#1e293b' } }]
+});
+
+// 渠道分布玫瑰图
+makeChart('channel-chart', {
+  tooltip: Object.assign({ trigger: 'item', formatter: '{b}<br/>订单：{c} 单' }, TOOLTIP_STYLE),
+  legend: { bottom: 0, textStyle: { color: '#64748b' } },
+  series: [{ type: 'pie', radius: ['30%','70%'], roseType: 'radius', data: channelDist.map(d=>({ name: d.channel, value: d.orders })), label: { color: '#1e293b' } }]
+});
+
+// 用户增长
+makeChart('user-growth-chart', {
+  tooltip: Object.assign({ trigger: 'axis' }, TOOLTIP_STYLE),
+  grid: { left: 60, right: 30, top: 40, bottom: 40 },
+  xAxis: { type: 'category', data: userGrowth.map(d=>d.month), axisLine: { lineStyle: { color: '#94a3b8' } } },
+  yAxis: { type: 'value', name: '累计用户数', splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: [{ name: '累计用户', type: 'line', data: userGrowth.map(d=>d.cum_users), smooth: true, areaStyle: { opacity: 0.2 }, itemStyle: { color: '#7c3aed' }, lineStyle: { width: 3 } }]
+});
+</script>
+{% endblock %}
