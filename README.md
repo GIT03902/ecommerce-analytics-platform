@@ -1,6 +1,24 @@
 # 电商销售数据分析与智能预警平台
 
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.7-F7931E?logo=scikitlearn&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Platform](https://img.shields.io/badge/Platform-Web%20%2B%20Docker-blue)
+
 > 基于 Flask + 随机森林的全栈电商数据分析系统，融合 RFM 客户分层、K-Means 聚类、随机森林销量预测，提供可视化仪表盘与智能预警能力。
+
+<table>
+<tr>
+<td align="center"><b>68,364</b><br><sub>订单数据</sub></td>
+<td align="center"><b>5,000</b><br><sub>消费者</sub></td>
+<td align="center"><b>200</b><br><sub>商品</sub></td>
+<td align="center"><b>2</b><br><sub>机器学习模型</sub></td>
+<td align="center"><b>9</b><br><sub>功能页面</sub></td>
+<td align="center"><b>16</b><br><sub>Agent 意图</sub></td>
+</tr>
+</table>
 
 ## 项目亮点
 
