@@ -1,5 +1,7 @@
 # 电商销售数据分析与智能预警平台
 
+[![CI](https://github.com/GIT03902/ecommerce-analytics-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GIT03902/ecommerce-analytics-platform/actions/workflows/ci.yml)
+[![在线 Demo](https://img.shields.io/badge/在线%20Demo-点击访问-brightgreen)](https://ecommerce-analytics-23296.app.workbuddy.host/?sharecode=W5DCDREGAD)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.7-F7931E?logo=scikitlearn&logoColor=white)
@@ -8,6 +10,8 @@
 ![Platform](https://img.shields.io/badge/Platform-Web%20%2B%20Docker-blue)
 
 > 基于 Flask + 随机森林的全栈电商数据分析系统，融合 RFM 客户分层、K-Means 聚类、随机森林销量预测，提供可视化仪表盘与智能预警能力。
+>
+> 🔗 **在线 Demo**：[https://ecommerce-analytics-23296.app.workbuddy.host](https://ecommerce-analytics-23296.app.workbuddy.host/?sharecode=W5DCDREGAD)（账号 `admin / admin123`）
 
 <table>
 <tr>
@@ -19,6 +23,38 @@
 <td align="center"><b>16</b><br><sub>Agent 意图</sub></td>
 </tr>
 </table>
+
+## 系统架构
+
+```mermaid
+graph TB
+    subgraph 用户层
+        U[面试官 / 运营人员]
+    end
+    subgraph 展示层
+        BR[浏览器] --> FLASK[Flask 路由<br/>9 个页面 + 8 个 API]
+        FLASK --> JINJA[Jinja2 模板]
+        JINJA --> ECH[ECharts 5.5 可视化<br/>地图/趋势/散点/堆叠]
+    end
+    subgraph 服务层
+        FLASK --> AUTH[Flask-Login 认证]
+        FLASK --> ANA[Analytics 分析服务<br/>KPI/图表查询]
+        FLASK --> EXP[Excel 导出 6 类报表]
+        FLASK --> AGENT[Agent 智能助手<br/>16 类意图识别]
+    end
+    subgraph 模型层
+        ANA --> RFM[RFM + K-Means<br/>客户分层]
+        ANA --> RF[随机森林<br/>销量预测]
+        RFM -.->|joblib 持久化| PKL[(模型文件)]
+        RF -.->|joblib 持久化| PKL
+    end
+    subgraph 数据层
+        ANA --> ORM[SQLAlchemy ORM]
+        ORM --> DB[(SQLite / MySQL<br/>5 张表 6.8万订单)]
+    end
+    U --> BR
+    AGENT --> ANA
+```
 
 ## 项目亮点
 

@@ -15,20 +15,5 @@ services:
       - ./models_trained:/app/models_trained
     restart: unless-stopped
 
-  # 如需启用 MySQL 模式，取消下方注释并设置 web 的 DB_MODE=mysql
-  # mysql:
-  #   image: mysql:8.1
-  #   container_name: ecommerce-mysql
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: '123456'
-  #     MYSQL_DATABASE: ecommerce
-  #     MYSQL_CHARSET: utf8mb4
-  #     MYSQL_COLLATION: utf8mb4_unicode_ci
-  #   ports:
-  #     - "3306:3306"
-  #   volumes:
-  #     - mysql_data:/var/lib/mysql
-  #   restart: unless-stopped
-
-# volumes:
-#   mysql_data:
+# 如需启用数据库服务，请参考 README 的「切换数据库模式」章节，
+# 使用 docker run 命令单独启动数据库容器，并通过环境变量 DB_MODE 切换。
