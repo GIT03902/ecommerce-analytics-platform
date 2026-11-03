@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>🤖 智能分析助手</h1>
+  <h1>🤖 智能分析助手 <span class="mode-badge" id="modeBadge">检测中…</span></h1>
   <div class="subtitle">自然语言提问 · Agent 自动识别意图、调度分析工具、生成结论与图表</div>
 </div>
 
@@ -30,6 +30,7 @@
   <div class="input-box">
     <input type="text" id="qInput" placeholder="例如：哪个品类卖得最好？/ 库存预警情况 / 未来7天销量预测" autocomplete="off">
     <button class="btn" id="sendBtn">发送 ➤</button>
+    <button class="btn btn-ghost" id="resetBtn" title="重置多轮会话上下文">⟳ 重置</button>
   </div>
 </div>
 
@@ -147,6 +148,24 @@
   border-color: #2563eb;
   box-shadow: 0 0 0 3px #dbeafe;
 }
+.mode-badge {
+  font-size: 12px;
+  font-weight: normal;
+  padding: 3px 10px;
+  border-radius: 10px;
+  vertical-align: middle;
+  margin-left: 10px;
+  background: #e2e8f0;
+  color: #64748b;
+}
+.mode-badge.dify { background: #dbeafe; color: #1d4ed8; }
+.mode-badge.local { background: #d1fae5; color: #047857; }
+.btn-ghost {
+  background: #fff !important;
+  color: #64748b !important;
+  border: 1px solid #cbd5e1 !important;
+}
+.btn-ghost:hover { background: #f1f5f9 !important; }
 .typing {
   display: inline-block;
   padding: 14px 18px;
@@ -171,7 +190,40 @@ const chatBox = document.getElementById('chatBox');
 const qInput = document.getElementById('qInput');
 const sendBtn = document.getElementById('sendBtn');
 const suggestBar = document.getElementById('suggestBar');
+const modeBadge = document.getElementById('modeBadge');
+const resetBtn = document.getElementById('resetBtn');
 let chartCounter = 0;
+
+async function fetchDifyStatus() {
+  try {
+    const r = await fetch('/api/dify/status');
+    const s = await r.json();
+    if (s.enabled) {
+      modeBadge.textContent = 'Dify 大模型';
+      modeBadge.className = 'mode-badge dify';
+      modeBadge.title = '当前由 Dify 智能体驱动，支持多轮自然语言对话';
+    } else {
+      modeBadge.textContent = '本地规则引擎';
+      modeBadge.className = 'mode-badge local';
+      modeBadge.title = 'Dify 未启用，使用本地关键词匹配引擎（配置 DIFY_ENABLED=true 切换）';
+    }
+  } catch (e) {
+    modeBadge.textContent = '本地规则引擎';
+    modeBadge.className = 'mode-badge local';
+  }
+}
+fetchDifyStatus();
+
+resetBtn.onclick = async () => {
+  try {
+    await fetch('/api/dify/reset', { method: 'POST' });
+    const div = document.createElement('div');
+    div.className = 'msg bot';
+    div.innerHTML = `<div class="avatar">🤖</div><div class="bubble"><div class="msg-text">✅ 会话上下文已重置，开始全新对话。</div></div>`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  } catch (e) {}
+};
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

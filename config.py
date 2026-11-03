@@ -70,3 +70,14 @@ def is_promo_day(date_obj):
     if key in PROMO_DAYS:
         return True, PROMO_DAYS[key][1]
     return False, ''
+
+
+# ============ Dify 智能体集成配置 ============
+# Dify 是开源 LLM 应用开发平台，集成后 Agent 助手由 Dify 大模型驱动：
+#   用户提问 → Flask 调 Dify chat-messages API → Dify 调度工具回调 Flask /api/tool/*
+# 未启用或 Dify 不可用时，自动降级到本地规则引擎（services/agent.py）
+DIFY_ENABLED = os.environ.get('DIFY_ENABLED', 'false').lower() == 'true'
+DIFY_BASE_URL = os.environ.get('DIFY_BASE_URL', 'http://localhost')  # Dify 服务地址
+DIFY_API_KEY = os.environ.get('DIFY_API_KEY', '')  # Dify 应用的 API Key
+# 开放工具 API 鉴权 Token（供 Dify Agent 工具回调使用）
+DIFY_TOOL_TOKEN = os.environ.get('DIFY_TOOL_TOKEN', 'ecommerce-dify-tool-2024')

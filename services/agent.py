@@ -46,7 +46,20 @@ class AnalyticsAgent:
         ]
 
     # ============ 主入口 ============
-    def ask(self, question):
+    def ask(self, question, user_id='web-user'):
+        # Dify 智能体优先：启用且配置 API Key 时走 Dify 大模型
+        # Dify 不可用时自动降级到本地规则引擎（mode=fallback）
+        try:
+            from services import dify_agent as D
+            if D.is_enabled():
+                res = D.ask(question, user_id=user_id)
+                if res.get('mode') == 'dify':
+                    res.setdefault('suggest', self._default_suggest())
+                    return res
+                # mode == 'fallback' → 降级到下方本地规则引擎
+        except Exception:
+            pass
+        # 本地规则引擎：关键词匹配 → 工具调度 → 结果生成
         q = (question or '').strip().lower()
         if not q:
             return {'answer': '请输入您想了解的分析问题。', 'suggest': self._default_suggest()}

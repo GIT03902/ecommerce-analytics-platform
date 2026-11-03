@@ -191,7 +191,21 @@ def create_app():
         from services.agent import agent as bot
         payload = request.get_json(silent=True) or {}
         q = payload.get('question', '')
-        return jsonify(bot.ask(q))
+        uid = str(current_user.id) if current_user.is_authenticated else 'web-user'
+        return jsonify(bot.ask(q, user_id=uid))
+
+    @app.route('/api/dify/status')
+    @login_required
+    def dify_status():
+        from services import dify_agent as D
+        return jsonify(D.get_status())
+
+    @app.route('/api/dify/reset', methods=['POST'])
+    @login_required
+    def dify_reset():
+        from services import dify_agent as D
+        uid = str(current_user.id) if current_user.is_authenticated else 'web-user'
+        return jsonify(D.reset_conversation(uid))
 
     # ============ 数据导出 ============
     @app.route('/export/<ftype>')
@@ -254,6 +268,79 @@ def create_app():
     @login_required
     def api_tier():
         return jsonify(R.get_tier_distribution().to_dict(orient='records'))
+
+    # ============ Dify 工具开放 API（Bearer Token 鉴权）============
+    # 供 Dify Agent 工具调用：大模型理解意图后回调这些接口获取结构化数据
+    # 鉴权方式：请求头 Authorization: Bearer <DIFY_TOOL_TOKEN>
+    def _check_tool_token():
+        auth = request.headers.get('Authorization', '')
+        token = auth.replace('Bearer ', '').strip()
+        expected = getattr(config, 'DIFY_TOOL_TOKEN', '')
+        return bool(token and expected and token == expected)
+
+    @app.route('/api/tool/kpis')
+    def tool_kpis():
+        """经营概况：GMV、订单、客单价、复购率等核心 KPI"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(A.get_kpis())
+
+    @app.route('/api/tool/monthly')
+    def tool_monthly():
+        """月度 GMV 趋势"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(A.get_monthly_gmv())
+
+    @app.route('/api/tool/category')
+    def tool_category():
+        """品类销售分析"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(A.get_category_sales())
+
+    @app.route('/api/tool/top-products')
+    def tool_top():
+        """热销商品 Top N"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        n = request.args.get('n', 10, type=int)
+        return jsonify(A.get_top_products(n))
+
+    @app.route('/api/tool/low-stock')
+    def tool_low_stock():
+        """库存预警商品"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(A.get_low_stock_products())
+
+    @app.route('/api/tool/tier')
+    def tool_tier():
+        """客户 RFM 分层"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(R.get_tier_distribution().to_dict(orient='records'))
+
+    @app.route('/api/tool/forecast')
+    def tool_forecast():
+        """随机森林销量预测"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(P.train_and_forecast())
+
+    @app.route('/api/tool/region')
+    def tool_region():
+        """全国区域销售分布"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(A.get_region_sales())
+
+    @app.route('/api/tool/channels')
+    def tool_channels():
+        """下单渠道分布"""
+        if not _check_tool_token():
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify(A.get_channel_dist())
 
     # ============ 错误处理 ============
     @app.errorhandler(404)
